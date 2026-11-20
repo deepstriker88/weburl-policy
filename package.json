@@ -1,0 +1,39 @@
+{
+  "name": "weburl-policy",
+  "version": "0.1.0",
+  "description": "Dependency-free HTTP(S) URL policy checks with normalization and structured errors",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": "./src/index.js",
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "url",
+    "validation",
+    "policy",
+    "security",
+    "http",
+    "https"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepstriker88/weburl-policy.git"
+  },
+  "homepage": "https://github.com/deepstriker88/weburl-policy#readme",
+  "bugs": {
+    "url": "https://github.com/deepstriker88/weburl-policy/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
