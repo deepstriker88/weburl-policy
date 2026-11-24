@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { inspectWebUrl } from "./index.js";
-import { createReadStream } from "node:fs";
+import { createReadStream, realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const MAX_LINE = 65536;
 function usage() {
@@ -116,6 +117,14 @@ export async function run(args, input, out, err) {
   }
   return invalid ? 1 : 0;
 }
-if (process.argv[1] && import.meta.url === new URL("file://" + process.argv[1]).href) {
+function isDirectExecution() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+if (isDirectExecution()) {
   process.exitCode = await run(process.argv.slice(2), process.stdin, process.stdout, process.stderr);
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- fix CLI execution through npm-generated `node_modules/.bin` links
+- add an npm-style symlink regression test for the installed CLI entry point
+- normalize the package `bin` path to the canonical npm form
+
 ## 0.1.1
 
 - add exact hostname allowlists and explicit subdomain policy
