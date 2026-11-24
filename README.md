@@ -60,6 +60,35 @@ Expected output:
 
 That is enough for the most common use case
 
+### Restrict links to trusted hostnames
+
+For callback URLs, approved integration endpoints, or customer-configured links,
+use an explicit hostname allowlist:
+
+```js
+import { inspectWebUrl } from "weburl-policy";
+
+inspectWebUrl("https://api.example.com/v1", {
+  allowedHosts: ["example.com"],
+  allowSubdomains: true,
+});
+// { ok: true, url: "https://api.example.com/v1", error: null }
+
+inspectWebUrl("https://example.com.attacker.test", {
+  allowedHosts: ["example.com"],
+  allowSubdomains: true,
+});
+// { ok: false, url: null, error: "HOSTNAME_NOT_ALLOWED" }
+```
+
+`allowedHosts` matches exact hostnames by default. `allowSubdomains: true`
+also matches descendants at DNS label boundaries, not arbitrary suffixes.
+Hostnames are normalized (including internationalized names) before comparison.
+This is a URL string policy, **not** an SSRF defense: it does not resolve DNS,
+block private IP ranges, or protect against DNS rebinding or redirects.
+For server-side HTTP requests, independently validate resolved addresses,
+redirect targets and network egress.
+
 ## Common examples
 
 ### Just check true or false
@@ -292,3 +321,64 @@ Use it as one input-validation layer and add DNS/IP/redirect/network controls be
 ## License
 
 MIT
+
+
+## Command-line validation (Node.js 18+)
+
+After installation, validate individual URLs:
+
+```bash
+npx weburl-policy --https-only --allowed-host example.com https://example.com/a
+```
+
+For local bulk validation, stream one URL per line:
+
+```bash
+printf 'https://example.com\nftp://example.com\n' | weburl-policy
+```
+
+The command emits one JSON object per URL and does not send input to a remote service
+Exit code 0 means every URL passed, 1 means at least one failed, and 2 means invalid options or an input failure
+The input limit is 64 KiB per URL; oversized lines return `INPUT_TOO_LARGE`
+Do not treat URL syntax validation as protection against SSRF, DNS rebinding, redirects, or OAuth redirect URI mismatch
+
+## Exact origin restrictions for callback URLs
+
+Use allowedOrigins to require a trusted **scheme + hostname + port**.
+Unlike allowedHosts, an origin policy distinguishes HTTP from HTTPS and
+ports 443 from 8443. Default ports and internationalized hostnames are
+normalized using the standard WHATWG URL parser.
+
+Example:
+
+    import { inspectWebUrl } from "weburl-policy";
+    const policy = { allowedOrigins: ["https://app.example.com:443"] };
+    inspectWebUrl("https://app.example.com/callback?code=abc", policy).ok; // true
+    inspectWebUrl("http://app.example.com/callback", policy).error; // ORIGIN_NOT_ALLOWED
+
+Entries must be HTTP(S) origins without credentials, path, query or fragment.
+The option is optional and combines with allowedHosts when both are set.
+This is an **origin check**, not an OAuth redirect URI equality check:
+the path and query are not constrained. It does not perform DNS resolution,
+block private addresses, follow redirects or guarantee SSRF protection.
+
+### CLI streaming limits
+
+The CLI accepts `--allowed-origin ORIGIN` and `--allow-subdomains`. Standard input is processed as newline-delimited URLs with a 65,536-byte per-line limit. Overlong lines are discarded incrementally and reported as `INPUT_TOO_LARGE`. This is not a total process-memory guarantee.
+
+## Validate a URL list file from the command line
+
+Use the packaged CLI without writing JavaScript:
+
+```bash
+printf 'https://example.com\nhttp://example.com\n' > urls.txt
+weburl-policy --input urls.txt --https-only > results.jsonl
+```
+
+Each line of `results.jsonl` contains one structured JSON result, in input order.
+Exit code 0 means all valid, 1 means at least one URL failed, and 2 means
+invalid arguments or a file read error. Lines exceeding 65,536 bytes are
+reported as `INPUT_TOO_LARGE` without echoing the oversized content.
+`--input` cannot be combined with positional URLs. Input files are streamed
+without loading the whole file into memory. This tool checks URL strings, not
+the safety of fetching remote resources.

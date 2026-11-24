@@ -9,6 +9,8 @@ const ERRORS = Object.freeze({
   PROTOCOL_NOT_ALLOWED: "PROTOCOL_NOT_ALLOWED",
   CREDENTIALS_NOT_ALLOWED: "CREDENTIALS_NOT_ALLOWED",
   HOSTNAME_REQUIRED: "HOSTNAME_REQUIRED",
+  HOSTNAME_NOT_ALLOWED: "HOSTNAME_NOT_ALLOWED",
+  ORIGIN_NOT_ALLOWED: "ORIGIN_NOT_ALLOWED",
 });
 
 function fail(error) {
@@ -20,6 +22,9 @@ function normalizeOptions(options) {
     return {
       allowedProtocols: new Set(DEFAULT_PROTOCOLS),
       allowCredentials: false,
+      allowedHosts: null,
+      allowedOrigins: null,
+      allowSubdomains: false,
     };
   }
 
@@ -30,6 +35,64 @@ function normalizeOptions(options) {
   const allowCredentials = options.allowCredentials ?? false;
   if (typeof allowCredentials !== "boolean") {
     throw new TypeError("allowCredentials must be a boolean");
+  }
+
+  const allowSubdomains = options.allowSubdomains ?? false;
+  if (typeof allowSubdomains !== "boolean") {
+    throw new TypeError("allowSubdomains must be a boolean");
+  }
+
+  let allowedHosts = null;
+  if (options.allowedHosts !== undefined) {
+    if (!Array.isArray(options.allowedHosts) || options.allowedHosts.length === 0) {
+      throw new TypeError("allowedHosts must be a non-empty array");
+    }
+    allowedHosts = new Set();
+    for (const host of options.allowedHosts) {
+      if (typeof host !== "string" || host !== host.trim() || !host || /[/?#@\s]/u.test(host) || (host.includes(":") && !/^\[[0-9a-fA-F:.]+\]$/.test(host))) {
+        throw new TypeError("allowedHosts entries must be hostnames");
+      }
+      let normalized;
+      try {
+        normalized = new URL(`https://${host}/`).hostname.toLowerCase().replace(/\.$/, "");
+      } catch {
+        throw new TypeError("allowedHosts contains an invalid hostname");
+      }
+      if (!normalized || normalized.includes("%") || normalized.includes("..") ||
+          !/^[a-z0-9.\-\[\]:]+$/u.test(normalized)) {
+        throw new TypeError("allowedHosts contains an invalid hostname");
+      }
+      allowedHosts.add(normalized);
+    }
+  }
+
+  let allowedOrigins = null;
+  if (options.allowedOrigins !== undefined) {
+    if (!Array.isArray(options.allowedOrigins) || options.allowedOrigins.length === 0) {
+      throw new TypeError("allowedOrigins must be a non-empty array");
+    }
+    allowedOrigins = new Set();
+    for (const origin of options.allowedOrigins) {
+      if (typeof origin !== "string" || !origin || origin !== origin.trim() ||
+          /[\u0000-\u0020\u007F]/u.test(origin)) {
+        throw new TypeError("allowedOrigins entries must be absolute HTTP(S) origins");
+      }
+      let parsedOrigin;
+      try {
+        parsedOrigin = new URL(origin);
+      } catch {
+        throw new TypeError("allowedOrigins contains an invalid origin");
+      }
+      if (!DEFAULT_PROTOCOLS.includes(parsedOrigin.protocol) ||
+          parsedOrigin.origin === "null" ||
+          parsedOrigin.username || parsedOrigin.password ||
+          parsedOrigin.pathname !== "/" || parsedOrigin.search || parsedOrigin.hash ||
+          !/^[a-z][a-z0-9+.-]*:\/\//i.test(origin) ||
+          origin.slice(origin.indexOf("://") + 3).includes("/")) {
+        throw new TypeError("allowedOrigins entries must be absolute HTTP(S) origins");
+      }
+      allowedOrigins.add(parsedOrigin.origin);
+    }
   }
 
   const rawProtocols = options.allowedProtocols ?? DEFAULT_PROTOCOLS;
@@ -53,7 +116,7 @@ function normalizeOptions(options) {
     allowedProtocols.add(protocol);
   }
 
-  return { allowedProtocols, allowCredentials };
+  return { allowedProtocols, allowCredentials, allowedHosts, allowedOrigins, allowSubdomains };
 }
 
 export class WebUrlPolicyError extends TypeError {
@@ -92,6 +155,19 @@ export function inspectWebUrl(value, options) {
   }
   if (!parsed.hostname) {
     return fail(ERRORS.HOSTNAME_REQUIRED);
+  }
+  if (policy.allowedHosts) {
+    const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
+    const permitted = [...policy.allowedHosts].some(
+      (host) => hostname === host ||
+        (policy.allowSubdomains && hostname.endsWith(`.${host}`)),
+    );
+    if (!permitted) {
+      return fail(ERRORS.HOSTNAME_NOT_ALLOWED);
+    }
+  }
+  if (policy.allowedOrigins && !policy.allowedOrigins.has(parsed.origin)) {
+    return fail(ERRORS.ORIGIN_NOT_ALLOWED);
   }
   if (!policy.allowCredentials && (parsed.username || parsed.password)) {
     return fail(ERRORS.CREDENTIALS_NOT_ALLOWED);

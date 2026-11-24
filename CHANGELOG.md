@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+- add exact hostname allowlists and explicit subdomain policy
+- add exact trusted-origin policy
+- add dependency-free streaming CLI for positional, stdin, and file inputs
+- bound oversized input records and output backpressure
+- fail cleanly when CLI output closes or errors
+
 ## 0.1.0
 
 Initial public release
