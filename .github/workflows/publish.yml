@@ -1,25 +1,55 @@
 name: Publish to npm
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
-      - run: npm --version
-      - run: npm test
-      - run: npm publish --access public
+
+      - name: Use OIDC-capable npm CLI
+        run: npm install --global npm@12.2.3
+
+      - name: Verify npm CLI and package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --version
+          node --version
+          node -e 'const p=require("./package.json"); if(p.repository?.url!=="git+https://github.com/deepstriker88/weburl-policy.git") process.exit(2)'
+          if [[ "${GITHUB_EVENT_NAME}" == "release" ]]; then
+            VERSION="v$(node -p 'require("./package.json").version')"
+            test "${GITHUB_REF_NAME}" = "${VERSION}"
+          fi
+
+      - name: Test package
+        run: npm test
+
+      - name: Audit publish payload
+        run: npm pack --dry-run --json --ignore-scripts > /tmp/npm-pack.json
+
+      - name: Publish with npm Trusted Publishing OIDC
+        run: npm publish --access public --ignore-scripts
