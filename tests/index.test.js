@@ -105,3 +105,85 @@ test("rejects invalid option shapes", () => {
     TypeError,
   );
 });
+
+test("restricts URLs to exact allowed hosts", () => {
+  const opts = { allowedHosts: ["EXAMPLE.com"] };
+  assert.equal(inspectWebUrl("https://example.com/a", opts).ok, true);
+  assert.equal(inspectWebUrl("https://other.example.com", opts).error, "HOSTNAME_NOT_ALLOWED");
+  assert.equal(inspectWebUrl("https://example.com.evil.test", opts).error, "HOSTNAME_NOT_ALLOWED");
+});
+
+test("explicit subdomain policy honors DNS label boundaries", () => {
+  const opts = { allowedHosts: ["example.com"], allowSubdomains: true };
+  assert.equal(isWebUrl("https://a.b.example.com", opts), true);
+  assert.equal(isWebUrl("https://badexample.com", opts), false);
+  assert.equal(isWebUrl("https://example.com.evil.test", opts), false);
+});
+
+test("host policy normalizes IDN and trailing dots", () => {
+  const opts = { allowedHosts: ["bücher.example"] };
+  assert.equal(isWebUrl("https://xn--bcher-kva.example/", opts), true);
+  assert.equal(isWebUrl("https://bücher.example./", opts), true);
+});
+
+test("host policy supports IPv4 and IPv6 exact matches", () => {
+  assert.equal(isWebUrl("https://127.0.0.1", { allowedHosts: ["127.0.0.1"] }), true);
+  assert.equal(isWebUrl("http://[::1]", { allowedHosts: ["[::1]"] }), true);
+  assert.equal(isWebUrl("http://[::1]", { allowedHosts: ["127.0.0.1"] }), false);
+});
+
+test("host policy rejects malformed configuration", () => {
+  for (const allowedHosts of [[], ["https://example.com"], ["example.com/path"], ["a b"], [123]]) {
+    assert.throws(() => inspectWebUrl("https://example.com", { allowedHosts }), TypeError);
+  }
+  assert.throws(() => inspectWebUrl("https://example.com", { allowSubdomains: 1 }), TypeError);
+});
+
+test("allowedOrigins matches exact scheme, host and effective port", () => {
+  const opts = { allowedOrigins: ["https://EXAMPLE.com:443", "http://localhost:8080"] };
+  assert.equal(isWebUrl("https://example.com/callback?code=1", opts), true);
+  assert.equal(isWebUrl("https://example.com:443/callback", opts), true);
+  assert.equal(isWebUrl("http://localhost:8080/callback", opts), true);
+  for (const url of [
+    "http://example.com/callback",
+    "https://example.com:444/callback",
+    "https://sub.example.com/callback",
+    "http://localhost:8081/callback",
+    "https://example.com.evil.test/callback",
+  ]) {
+    assert.equal(inspectWebUrl(url, opts).error, "ORIGIN_NOT_ALLOWED", url);
+  }
+});
+
+test("allowedOrigins normalizes IDN and IPv6 origins", () => {
+  assert.equal(isWebUrl("https://xn--bcher-kva.example/", {
+    allowedOrigins: ["https://bücher.example"],
+  }), true);
+  assert.equal(isWebUrl("http://[::1]:8080/", {
+    allowedOrigins: ["http://[::1]:8080"],
+  }), true);
+});
+
+test("allowedOrigins rejects malformed origins and URL-like paths", () => {
+  for (const origin of [
+    "example.com", "ftp://example.com", "https://user@example.com",
+    "https://example.com/path", "https://example.com/?q=1",
+    "https://example.com/#frag", "https://example.com.evil.test@trusted.test",
+    "https://example.com/", "https://example.com:bad", "null", 42,
+  ]) {
+    assert.throws(() => inspectWebUrl("https://example.com", {
+      allowedOrigins: [origin],
+    }), TypeError, String(origin));
+  }
+  assert.throws(() => isWebUrl("https://example.com", { allowedOrigins: [] }), TypeError);
+});
+
+test("allowedOrigins and allowedHosts are both enforced", () => {
+  const opts = {
+    allowedHosts: ["example.com"],
+    allowedOrigins: ["https://example.com:8443"],
+  };
+  assert.equal(isWebUrl("https://example.com:8443/a", opts), true);
+  assert.equal(inspectWebUrl("https://example.com/a", opts).error, "ORIGIN_NOT_ALLOWED");
+  assert.equal(inspectWebUrl("https://other.com/a", opts).error, "HOSTNAME_NOT_ALLOWED");
+});
