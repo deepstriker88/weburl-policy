@@ -1,6 +1,6 @@
 {
   "name": "weburl-policy",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Dependency-free HTTP(S) URL policy checks with normalization and structured errors",
   "type": "module",
   "main": "./src/index.js",
@@ -37,6 +37,6 @@
     "access": "public"
   },
   "bin": {
-    "weburl-policy": "./src/cli.js"
+    "weburl-policy": "src/cli.js"
   }
 }

@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, symlinkSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -40,6 +40,23 @@ test("CLI --help prints usage", () => {
   const r = invoke(["--help"]);
   assert.equal(r.status, 0);
   assert.match(r.stdout, /Usage: weburl-policy/);
+});
+
+test("CLI executes through an npm-style symlink", () => {
+  const dir = mkdtempSync(join(tmpdir(), "weburl-bin-"));
+  try {
+    const link = join(dir, "weburl-policy");
+    symlinkSync(cli, link);
+    chmodSync(cli, 0o755);
+    const help = spawnSync(link, ["--help"], { encoding: "utf8" });
+    assert.equal(help.status, 0, help.stderr);
+    assert.match(help.stdout, /Usage: weburl-policy/);
+    const result = spawnSync(link, ["https://example.com"], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).ok, true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("CLI supports origin restriction and subdomain flag", () => {

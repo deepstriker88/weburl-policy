@@ -2,7 +2,7 @@
   "source_candidate": "npm:valid-url",
   "repository_name": "weburl-policy",
   "package_name": "weburl-policy",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "ecosystem": "node",
   "description": "Dependency-free HTTP(S) URL policy checks with normalization and structured errors",
   "license_spdx": "MIT",
