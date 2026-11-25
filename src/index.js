@@ -49,7 +49,7 @@ function normalizeOptions(options) {
     }
     allowedHosts = new Set();
     for (const host of options.allowedHosts) {
-      if (typeof host !== "string" || host !== host.trim() || !host || /[/?#@\s]/u.test(host) || (host.includes(":") && !/^\[[0-9a-fA-F:.]+\]$/.test(host))) {
+      if (typeof host !== "string" || host !== host.trim() || !host || /[\\/?#@%\s]/u.test(host) || (host.includes(":") && !/^\[[0-9a-fA-F:.]+\]$/.test(host))) {
         throw new TypeError("allowedHosts entries must be hostnames");
       }
       let normalized;
@@ -74,7 +74,7 @@ function normalizeOptions(options) {
     allowedOrigins = new Set();
     for (const origin of options.allowedOrigins) {
       if (typeof origin !== "string" || !origin || origin !== origin.trim() ||
-          /[\u0000-\u0020\u007F]/u.test(origin)) {
+          /[\\\u0000-\u0020\u007F]/u.test(origin)) {
         throw new TypeError("allowedOrigins entries must be absolute HTTP(S) origins");
       }
       let parsedOrigin;
