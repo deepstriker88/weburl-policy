@@ -38,5 +38,9 @@
   },
   "bin": {
     "weburl-policy": "src/cli.js"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://buymeacoffee.com/eztoolgo"
   }
 }
