@@ -382,3 +382,9 @@ reported as `INPUT_TOO_LARGE` without echoing the oversized content.
 `--input` cannot be combined with positional URLs. Input files are streamed
 without loading the whole file into memory. This tool checks URL strings, not
 the safety of fetching remote resources.
+
+<!-- eztoolgo-voluntary-support:start -->
+## Support development
+
+If this tool saves you time, you can [buy me a coffee](https://buymeacoffee.com/eztoolgo). Voluntary support does not unlock features or purchase service access.
+<!-- eztoolgo-voluntary-support:end -->

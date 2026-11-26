@@ -187,3 +187,11 @@ test("allowedOrigins and allowedHosts are both enforced", () => {
   assert.equal(inspectWebUrl("https://example.com/a", opts).error, "ORIGIN_NOT_ALLOWED");
   assert.equal(inspectWebUrl("https://other.com/a", opts).error, "HOSTNAME_NOT_ALLOWED");
 });
+
+test("allowlist rejects ambiguous URL parser normalization of configured hosts and origins", () => {
+  for (const host of ["example.com\\ignored", "%65xample.com"]) {
+    assert.throws(() => inspectWebUrl("https://example.com", {allowedHosts:[host]}), TypeError);
+  }
+  assert.throws(() => inspectWebUrl("https://example.com", {allowedOrigins:["https://example.com\\"]}), TypeError);
+  assert.equal(inspectWebUrl("https://bücher.example/", {allowedHosts:["bücher.example"]}).ok,true);
+});
